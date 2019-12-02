@@ -1,37 +1,31 @@
-#include "mpi.h"
+#include <mpi.h>
 #include <stdio.h>
-#include <cmath>
+#include <chrono>
 
-void main(int argc, char* argv[]) {
-
-	int rank, size, length, partner;
-	char name[MPI_MAX_PROCESSOR_NAME];
-	MPI_Status status[2];
-	MPI_Request request[2];
-	char sndMessage[100];
-	char rcvMessage[100];
+void main(int argc, char** argv) {
+	int rank;
+	char buf[100];
+	const int root = 0;
 	MPI_Init(&argc, &argv);
-	MPI_Get_processor_name(name, &length);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-	if (rank < size / 2) {
-		partner = rank + size / 2;
-	}
-	else {
-		partner = rank - size / 2;
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	auto start = std::chrono::high_resolution_clock::now();
+	if (rank == root) {
+		sprintf_s(buf, "Hello there General Kenobi\n");
 	}
 
-	sprintf_s(sndMessage, "Mensaje enviado por %d, a %d\0", rank, partner);
-
-	MPI_Isend(&sndMessage, 100, MPI_CHAR, partner, 1, MPI_COMM_WORLD, &request[1]);
-	MPI_Irecv(&rcvMessage, 100, MPI_CHAR, partner, 1, MPI_COMM_WORLD, &request[0]);
-
-	printf("[Proceso %d] Mi companero es %d y he recibido el mensaje ", rank, partner);
-	printf(rcvMessage);
-
-	MPI_Waitall(2, request, status);
+	
+	MPI_Bcast(&buf, 100, MPI_CHAR, root, MPI_COMM_WORLD);
+	
+	printf("[%d]: El mensaje es: ", rank);
+	printf(buf);	
+	
+	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Finalize();
-
+	
+	auto finish = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double> elapsed = finish - start;
+	printf("Ha tardado %lf",elapsed.count());
 	return;
 }
