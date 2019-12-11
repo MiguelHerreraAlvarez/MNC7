@@ -1,31 +1,45 @@
 #include <mpi.h>
 #include <stdio.h>
-#include <chrono>
+
+#define MSGSIZE 100000
 
 void main(int argc, char** argv) {
-	int rank;
-	char buf[100];
+	int rank, size;
+	char msgSend[MSGSIZE];
+	char msgRecv[MSGSIZE];
 	const int root = 0;
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Barrier(MPI_COMM_WORLD);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	MPI_Status status;
+
+	double ti_PaP = MPI_Wtime();
 	
-	auto start = std::chrono::high_resolution_clock::now();
 	if (rank == root) {
-		sprintf_s(buf, "Hello there General Kenobi\n");
+		sprintf_s(msgSend, "Hello there General Kenobi\n");
+		for (int i = 1; i < size; i++) {
+			MPI_Send(msgSend, MSGSIZE, MPI_CHAR, i, 1, MPI_COMM_WORLD);
+		}
+	} else {
+		MPI_Recv(msgRecv, MSGSIZE, MPI_CHAR, 0, 1, MPI_COMM_WORLD, &status);
+		printf("[%d](PaP): El mensaje es: %s", rank, msgRecv);
 	}
+	double tf_PaP = MPI_Wtime();
+	if (rank == root) printf("Tiempo Punto a Punto: %lf\n", tf_PaP - ti_PaP);
+
 
 	
-	MPI_Bcast(&buf, 100, MPI_CHAR, root, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
+	double ti_Bcast = MPI_Wtime();
 	
-	printf("[%d]: El mensaje es: ", rank);
-	printf(buf);	
+	MPI_Bcast(&msgSend, MSGSIZE, MPI_CHAR, root, MPI_COMM_WORLD);
+	
+	if(rank != root) printf("[%d](Broadcast): El mensaje es: %s", rank, msgSend);	
 	
 	MPI_Barrier(MPI_COMM_WORLD);
+	double tf_Bcast = MPI_Wtime();
+	if (rank == root) printf("Tiempo Broadcast: %lf\n", tf_Bcast - ti_Bcast);
 	MPI_Finalize();
 	
-	auto finish = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> elapsed = finish - start;
-	printf("Ha tardado %lf",elapsed.count());
 	return;
 }
